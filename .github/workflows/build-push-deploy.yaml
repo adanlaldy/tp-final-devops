@@ -11,7 +11,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -77,7 +76,6 @@ jobs:
               environment-variables.JWT_SECRET="secret" \
               environment-variables.BCRYPT_SALT_ROUNDS="10" \
               environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
-              environment-variables.PORT="3000" \
               environment-variables.APP_PORT="3000" \
               min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
 
@@ -95,7 +93,6 @@ jobs:
               environment-variables.JWT_SECRET="secret" \
               environment-variables.BCRYPT_SALT_ROUNDS="10" \
               environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
-              environment-variables.PORT="3000" \
               environment-variables.APP_PORT="3000" \
               min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
             echo "✅ Nouveau container backend créé."
@@ -134,16 +131,6 @@ jobs:
               min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
             echo "✅ Nouveau container frontend créé."
           fi
-      - name: Check backend container logs after deploy
-        env:
-          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_PROJECT_ID: 4f182147-90a1-46a7-b7b3-babadf6177b2
-          SCW_DEFAULT_REGION: fr-par
-        run: |
-          CONTAINER_UUID=$(scw container container list namespace-id=$SCW_DEFAULT_PROJECT_ID region=$SCW_DEFAULT_REGION --format json | jq -r '.[] | select(.name=="devops-dev-api") | .id')
-          echo "Logs du container backend ($CONTAINER_UUID) :"
-          scw container container logs "$CONTAINER_UUID" --tail 50
 
       - name: Wait for backend to be ready
         run: |
@@ -159,4 +146,4 @@ jobs:
           done
           echo "Backend did not start in time"
           exit 1
-
+      
