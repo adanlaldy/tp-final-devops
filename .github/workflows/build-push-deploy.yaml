@@ -11,7 +11,6 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -19,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20'  # Corrigé : version stable de Node.js
+          node-version: '22.16'
 
       - name: Build backend
         working-directory: ./back
@@ -57,28 +56,12 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
           scw version
 
-      - name: Check backend container status before deploy
-        env:
-          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_PROJECT_ID: 4f182147-90a1-46a7-b7b3-babadf6177b2
-          SCW_DEFAULT_REGION: fr-par
-        run: |
-          echo "🔍 Vérification de l'état du container backend avant déploiement..."
-          scw container container list namespace-id=$SCW_DEFAULT_PROJECT_ID region=$SCW_DEFAULT_REGION
-          CONTAINER_UUID=$(scw container container list namespace-id=$SCW_DEFAULT_PROJECT_ID region=$SCW_DEFAULT_REGION --format json | jq -r '.[] | select(.name=="devops-dev-api") | .id')
-          if [ -n "$CONTAINER_UUID" ]; then
-            echo "État du container backend ($CONTAINER_UUID) :"
-            scw container container describe "$CONTAINER_UUID" region=$SCW_DEFAULT_REGION
-            echo "Logs avant déploiement :"
-            scw container container logs "$CONTAINER_UUID" --tail 20
-          fi
-
       - name: Deploy backend container
         env:
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           SCW_DEFAULT_PROJECT_ID: 4f182147-90a1-46a7-b7b3-babadf6177b2
+          SCW_DEFAULT_ORGANIZATION_ID: 909c2e48-12fc-47bf-b8ef-360a60b07500
           SCW_DEFAULT_REGION: fr-par
         run: |
           echo "🔍 Recherche de l'UUID du container backend devops-dev-api..."
@@ -86,9 +69,6 @@ jobs:
           echo "UUID trouvé : '$CONTAINER_UUID'"
 
           if [ -n "$CONTAINER_UUID" ]; then
-            echo "📋 Configuration actuelle du container :"
-            scw container container describe "$CONTAINER_UUID" region=$SCW_DEFAULT_REGION
-
             echo "🚀 Mise à jour du container existant..."
             scw container container update "$CONTAINER_UUID" \
               registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
@@ -97,19 +77,10 @@ jobs:
               environment-variables.BCRYPT_SALT_ROUNDS="10" \
               environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
               environment-variables.APP_PORT="3000" \
-              min-scale=1 max-scale=1 memory-limit=256 cpu-limit=100
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
 
             echo "🔄 Redeploiement du container backend..."
             scw container container redeploy "$CONTAINER_UUID"
-
-            # Attendre un peu pour que le conteneur démarre
-            sleep 30
-
-            echo "🔍 État du container après redéploiement :"
-            scw container container describe "$CONTAINER_UUID" region=$SCW_DEFAULT_REGION
-            echo "📝 Logs du container après redéploiement :"
-            scw container container logs "$CONTAINER_UUID" --tail 50
-
             echo "✅ Backend mis à jour et redéployé avec succès."
           else
             echo "⚠️ Aucun container existant trouvé, création d'un nouveau container backend..."
@@ -123,46 +94,8 @@ jobs:
               environment-variables.BCRYPT_SALT_ROUNDS="10" \
               environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
               environment-variables.APP_PORT="3000" \
-              min-scale=1 max-scale=1 memory-limit=256 cpu-limit=100
-
-            echo "⏳ Attente pour que le nouveau conteneur démarre..."
-            sleep 30
-
-            CONTAINER_UUID=$(scw container container list namespace-id=$SCW_DEFAULT_PROJECT_ID region=$SCW_DEFAULT_REGION --format json | jq -r '.[] | select(.name=="devops-dev-api") | .id')
-            echo "🔍 État du nouveau container :"
-            scw container container describe "$CONTAINER_UUID" region=$SCW_DEFAULT_REGION
-            echo "📝 Logs du nouveau container :"
-            scw container container logs "$CONTAINER_UUID" --tail 50
-
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
             echo "✅ Nouveau container backend créé."
-          fi
-
-      - name: Verify backend deployment
-        env:
-          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_PROJECT_ID: 4f182147-90a1-46a7-b7b3-babadf6177b2
-          SCW_DEFAULT_REGION: fr-par
-        run: |
-          echo "🔍 Vérification finale de l'état du container backend..."
-          CONTAINER_UUID=$(scw container container list namespace-id=$SCW_DEFAULT_PROJECT_ID region=$SCW_DEFAULT_REGION --format json | jq -r '.[] | select(.name=="devops-dev-api") | .id')
-          if [ -n "$CONTAINER_UUID" ]; then
-            echo "État du container backend :"
-            scw container container describe "$CONTAINER_UUID" region=$SCW_DEFAULT_REGION
-            echo "Logs du container backend :"
-            scw container container logs "$CONTAINER_UUID" --tail 50
-
-            # Vérifier si le conteneur est en cours d'exécution
-            STATUS=$(scw container container describe "$CONTAINER_UUID" region=$SCW_DEFAULT_REGION --format json | jq -r '.status')
-            if [ "$STATUS" != "running" ]; then
-              echo "❌ Le conteneur backend n'est pas en cours d'exécution. État: $STATUS"
-              exit 1
-            else
-              echo "✅ Le conteneur backend est en cours d'exécution."
-            fi
-          else
-            echo "❌ Aucun conteneur backend trouvé."
-            exit 1
           fi
 
       - name: Deploy frontend container
@@ -176,12 +109,14 @@ jobs:
           echo "🔍 Recherche de l'UUID du container frontend devops-dev-web..."
           CONTAINER_UUID=$(scw container container list namespace-id=$SCW_DEFAULT_PROJECT_ID region=$SCW_DEFAULT_REGION --format json | jq -r '.[] | select(.name=="devops-dev-web") | .id')
           echo "UUID trouvé : '$CONTAINER_UUID'"
+
           if [ -n "$CONTAINER_UUID" ]; then
             echo "🚀 Mise à jour du container frontend existant..."
             scw container container update "$CONTAINER_UUID" \
               registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
               environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
-              min-scale=1 max-scale=1 memory-limit=256 cpu-limit=100
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
+
             echo "🔄 Redeploiement du container frontend..."
             scw container container redeploy "$CONTAINER_UUID"
             echo "✅ Frontend mis à jour et redéployé avec succès."
@@ -193,6 +128,22 @@ jobs:
               registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
               port=80 region=$SCW_DEFAULT_REGION \
               environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
-              min-scale=1 max-scale=1 memory-limit=256 cpu-limit=100
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
             echo "✅ Nouveau container frontend créé."
           fi
+
+      - name: Wait for backend to be ready
+        run: |
+          for i in {1..15}; do
+            RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://devops-dev-api.fr-par.scaleway.container:3000/health || echo "000")
+            if [ "$RESPONSE" = "200" ]; then
+              echo "Backend is up!"
+              exit 0
+            else
+              echo "Waiting for backend... attempt $i"
+              sleep 10
+            fi
+          done
+          echo "Backend did not start in time"
+          exit 1
+      
