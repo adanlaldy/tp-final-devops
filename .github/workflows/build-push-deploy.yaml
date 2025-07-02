@@ -50,11 +50,12 @@ jobs:
           docker push rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest
           docker push rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest
 
-      - name: Install Scaleway CLI
+      - name: Install Scaleway CLI and jq
         run: |
           curl -L -o scw https://github.com/scaleway/scaleway-cli/releases/download/v2.16.0/scaleway-cli_2.16.0_linux_amd64
           chmod +x scw
           sudo mv scw /usr/local/bin/scw
+          sudo apt-get update && sudo apt-get install -y jq
           scw version
 
       - name: Deploy backend container
@@ -65,46 +66,71 @@ jobs:
           SCW_DEFAULT_ORGANIZATION_ID: 909c2e48-12fc-47bf-b8ef-360a60b07500
           SCW_DEFAULT_REGION: fr-par
         run: |
-          scw container container update devops-dev-api \
-            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
-            environment-variables.DATABASE_URL="file:./dev.db" \
-            environment-variables.JWT_SECRET="secret" \
-            environment-variables.BCRYPT_SALT_ROUNDS="10" \
-            environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
-            environment-variables.PORT="3000" \
-            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            redeploy=true || \
-          scw container container create \
-            name=devops-dev-api \
-            namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
-            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
-            port=3000 region=fr-par \
-            environment-variables.DATABASE_URL="file:./dev.db" \
-            environment-variables.JWT_SECRET="secret" \
-            environment-variables.BCRYPT_SALT_ROUNDS="10" \
-            environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
-            environment-variables.PORT="3000" \
-            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            redeploy=true
+          echo "🔍 Recherche de l'UUID du container backend devops-dev-api..."
+          CONTAINER_UUID=$(scw container container list --namespace-id 4f182147-90a1-46a7-b7b3-babadf6177b2 --region fr-par --format json | jq -r '.[] | select(.name=="devops-dev-api") | .id')
+          echo "UUID trouvé : '$CONTAINER_UUID'"
+
+          if [ -n "$CONTAINER_UUID" ]; then
+            echo "🚀 Mise à jour du container existant..."
+            scw container container update $CONTAINER_UUID \
+              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
+              environment-variables.DATABASE_URL="file:./dev.db" \
+              environment-variables.JWT_SECRET="secret" \
+              environment-variables.BCRYPT_SALT_ROUNDS="10" \
+              environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
+              environment-variables.PORT="3000" \
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
+
+            echo "🔄 Redeploiement du container backend..."
+            scw container container redeploy $CONTAINER_UUID
+            echo "✅ Backend mis à jour et redéployé avec succès."
+          else
+            echo "⚠️ Aucun container existant trouvé, création d'un nouveau container backend..."
+            scw container container create \
+              name=devops-dev-api \
+              namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
+              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
+              port=3000 region=fr-par \
+              environment-variables.DATABASE_URL="file:./dev.db" \
+              environment-variables.JWT_SECRET="secret" \
+              environment-variables.BCRYPT_SALT_ROUNDS="10" \
+              environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
+              environment-variables.PORT="3000" \
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
+            echo "✅ Nouveau container backend créé."
+          fi
 
       - name: Deploy frontend container
         env:
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_PROJECT_ID: your-project-id
+          SCW_DEFAULT_PROJECT_ID: 4f182147-90a1-46a7-b7b3-babadf6177b2
+          SCW_DEFAULT_ORGANIZATION_ID: 909c2e48-12fc-47bf-b8ef-360a60b07500
           SCW_DEFAULT_REGION: fr-par
         run: |
-          scw container container update devops-dev-web \
-            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
-            environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
-            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            redeploy=true || \
-          scw container container create \
-            name=devops-dev-web \
-            namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
-            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
-            port=80 region=fr-par \
-            environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
-            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            redeploy=true
+          echo "🔍 Recherche de l'UUID du container frontend devops-dev-web..."
+          CONTAINER_UUID=$(scw container container list --namespace-id 4f182147-90a1-46a7-b7b3-babadf6177b2 --region fr-par --format json | jq -r '.[] | select(.name=="devops-dev-web") | .id')
+          echo "UUID trouvé : '$CONTAINER_UUID'"
+
+          if [ -n "$CONTAINER_UUID" ]; then
+            echo "🚀 Mise à jour du container frontend existant..."
+            scw container container update $CONTAINER_UUID \
+              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
+              environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
+
+            echo "🔄 Redeploiement du container frontend..."
+            scw container container redeploy $CONTAINER_UUID
+            echo "✅ Frontend mis à jour et redéployé avec succès."
+          else
+            echo "⚠️ Aucun container frontend existant trouvé, création d'un nouveau container..."
+            scw container container create \
+              name=devops-dev-web \
+              namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
+              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
+              port=80 region=fr-par \
+              environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
+              min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100
+            echo "✅ Nouveau container frontend créé."
+          fi
       
