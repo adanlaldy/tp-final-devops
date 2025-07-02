@@ -52,9 +52,9 @@ jobs:
       - name: Install Scaleway CLI
         run: |
           curl -L -o scw https://github.com/scaleway/scaleway-cli/releases/latest/download/scw-linux-amd64
-          file scw
           chmod +x scw
           sudo mv scw /usr/local/bin/scw
+          scw version
 
       - name: Configure Scaleway CLI
         env:
