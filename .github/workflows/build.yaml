@@ -1,0 +1,40 @@
+name: Build Project and Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-and-docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.16'
+
+      - name: Build backend
+        working-directory: ./back
+        run: |
+          npm install
+          npm run build
+
+      - name: Build frontend
+        working-directory: ./front
+        run: |
+          npm install
+          npm run build
+
+      - name: Build Docker image for API
+        run: docker build -t devops-dev-api ./back
+
+      - name: Build Docker image for Web
+        run: docker build -t devops-dev-web ./front
