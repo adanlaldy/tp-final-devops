@@ -73,7 +73,7 @@ jobs:
             environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
             environment-variables.PORT="3000" \
             min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            deploy=true || \
+            redeploy=true || \
           scw container container create \
             name=devops-dev-api \
             namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
@@ -85,7 +85,7 @@ jobs:
             environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
             environment-variables.PORT="3000" \
             min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            deploy=true
+            redeploy=true
 
       - name: Deploy frontend container
         env:
@@ -98,7 +98,7 @@ jobs:
             registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
             environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
             min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            deploy=true || \
+            redeploy=true || \
           scw container container create \
             name=devops-dev-web \
             namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
@@ -106,5 +106,5 @@ jobs:
             port=80 region=fr-par \
             environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
             min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
-            deploy=true
+            redeploy=true
       
