@@ -1,4 +1,4 @@
-name: Build Project and Docker Images
+name: Build, Push and Deploy on Scaleway
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  build-and-docker:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -31,8 +31,77 @@ jobs:
           npm install
           npm run build
 
+      - name: Login to Scaleway registry
+        env:
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: |
+          echo "$SCW_SECRET_KEY" | docker login rg.fr-par.scw.cloud -u "$SCW_ACCESS_KEY" --password-stdin
+
       - name: Build Docker image for API
-        run: docker build -t devops-dev-api ./back
+        run: docker build -t rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest ./back
 
       - name: Build Docker image for Web
-        run: docker build -t devops-dev-web ./front
+        run: docker build -t rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest ./front
+
+      - name: Push Docker images to Scaleway registry
+        run: |
+          docker push rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest
+          docker push rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest
+
+      - name: Install Scaleway CLI
+        run: |
+          curl -sL https://github.com/scaleway/scaleway-cli/releases/latest/download/scw-linux-amd64 -o scw
+          chmod +x scw
+          sudo mv scw /usr/local/bin/scw
+
+      - name: Configure Scaleway CLI
+        env:
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+        run: |
+          scw config set access-key "$SCW_ACCESS_KEY"
+          scw config set secret-key "$SCW_SECRET_KEY"
+          scw config set default-project-id your-project-id
+          scw config set default-region fr-par
+          scw config set output json
+
+      - name: Deploy backend container
+        run: |
+          scw container container update devops-dev-api \
+            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
+            environment-variables.DATABASE_URL="file:./dev.db" \
+            environment-variables.JWT_SECRET="secret" \
+            environment-variables.BCRYPT_SALT_ROUNDS="10" \
+            environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
+            environment-variables.PORT="3000" \
+            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
+            deploy=true || \
+          scw container container create \
+            name=devops-dev-api \
+            namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
+            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
+            port=3000 region=fr-par \
+            environment-variables.DATABASE_URL="file:./dev.db" \
+            environment-variables.JWT_SECRET="secret" \
+            environment-variables.BCRYPT_SALT_ROUNDS="10" \
+            environment-variables.DEFAULT_ADMIN_PASSWORD="changeme" \
+            environment-variables.PORT="3000" \
+            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
+            deploy=true
+
+      - name: Deploy frontend container
+        run: |
+          scw container container update devops-dev-web \
+            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
+            environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
+            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
+            deploy=true || \
+          scw container container create \
+            name=devops-dev-web \
+            namespace-id=4f182147-90a1-46a7-b7b3-babadf6177b2 \
+            registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
+            port=80 region=fr-par \
+            environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
+            min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
+            deploy=true
