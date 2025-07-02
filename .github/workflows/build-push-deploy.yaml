@@ -61,7 +61,7 @@ jobs:
         env:
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_DEFAULT_PROJECT_ID: your-project-id
+          SCW_DEFAULT_PROJECT_ID: 4f182147-90a1-46a7-b7b3-babadf6177b2
           SCW_DEFAULT_REGION: fr-par
         run: |
           scw container container update devops-dev-api \
