@@ -14,14 +14,6 @@ jobs:
 
     steps:
 
-      - name: Install Scaleway CLI
-        run: |
-          curl -L -o scw https://github.com/scaleway/scaleway-cli/releases/download/v2.16.0/scaleway-cli_2.16.0_linux_amd64
-          chmod +x scw
-          sudo mv scw /usr/local/bin/scw
-          scw version
-      
-
       - name: Checkout code
         uses: actions/checkout@v3
 
@@ -58,18 +50,19 @@ jobs:
           docker push rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest
           docker push rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest
 
-      - name: Configure Scaleway CLI
+      - name: Install Scaleway CLI
+        run: |
+          curl -L -o scw https://github.com/scaleway/scaleway-cli/releases/download/v2.16.0/scaleway-cli_2.16.0_linux_amd64
+          chmod +x scw
+          sudo mv scw /usr/local/bin/scw
+          scw version
+
+      - name: Deploy backend container
         env:
           SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
           SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-        run: |
-          scw config set access-key "$SCW_ACCESS_KEY"
-          scw config set secret-key "$SCW_SECRET_KEY"
-          scw config set default-project-id your-project-id
-          scw config set default-region fr-par
-          scw config set output json
-
-      - name: Deploy backend container
+          SCW_DEFAULT_PROJECT_ID: your-project-id
+          SCW_DEFAULT_REGION: fr-par
         run: |
           scw container container update devops-dev-api \
             registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest \
@@ -94,6 +87,11 @@ jobs:
             deploy=true
 
       - name: Deploy frontend container
+        env:
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_DEFAULT_PROJECT_ID: your-project-id
+          SCW_DEFAULT_REGION: fr-par
         run: |
           scw container container update devops-dev-web \
             registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest \
@@ -108,3 +106,4 @@ jobs:
             environment-variables.VITE_API_URL="https://nslaldyadanbxh6co34-devops-dev-api.functions.fnc.fr-par.scw.cloud" \
             min-scale=0 max-scale=1 memory-limit=256 cpu-limit=100 \
             deploy=true
+      
