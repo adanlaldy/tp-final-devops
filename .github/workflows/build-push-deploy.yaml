@@ -68,28 +68,40 @@ jobs:
           sudo mv scw /usr/local/bin/scw
           sudo apt-get install -y jq
 
+      - name: Configure Scaleway CLI
+        env:
+          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
+          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
+          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
+        run: |
+          scw config init \
+            -a "$SCW_ACCESS_KEY" \
+            -s "$SCW_SECRET_KEY" \
+            -o "$SCW_PROJECT_ID" \
+            -r fr-par
+
+      - name: Load build tag
+        id: load-tag
+        run: echo "TAG=v$(date +%Y%m%d)-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+
       - name: Update Backend Container
         env:
-          ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-          SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           NAMESPACE_ID: ${{ secrets.SCALEWAY_NAMESPACE_ID }}
         run: |
           CONTAINER_ID=$(scw container container list name=devops-dev-api namespace-id=$NAMESPACE_ID --output json | jq -r '.[0].id // empty')
           if [ -n "$CONTAINER_ID" ]; then
             scw container container update "$CONTAINER_ID" \
-              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:latest
+              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-api:${{ steps.load-tag.outputs.TAG }}
             scw container container redeploy "$CONTAINER_ID"
           fi
 
       - name: Update Frontend Container
         env:
-          ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-          SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
           NAMESPACE_ID: ${{ secrets.SCALEWAY_NAMESPACE_ID }}
         run: |
           CONTAINER_ID=$(scw container container list name=devops-dev-web namespace-id=$NAMESPACE_ID --output json | jq -r '.[0].id // empty')
           if [ -n "$CONTAINER_ID" ]; then
             scw container container update "$CONTAINER_ID" \
-              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:latest
+              registry-image=rg.fr-par.scw.cloud/namespace-laldy-adan/devops-dev-web:${{ steps.load-tag.outputs.TAG }}
             scw container container redeploy "$CONTAINER_ID"
           fi
