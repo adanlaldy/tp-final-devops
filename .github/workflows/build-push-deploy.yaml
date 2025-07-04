@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci
+      - run: npm install
         working-directory: ./back
       - run: npm audit --audit-level=moderate
         working-directory: ./back
@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npm ci --legacy-peer-deps
+      - run: npm install --legacy-peer-deps
         working-directory: ./front
       - run: npm audit --audit-level=moderate
         working-directory: ./front
