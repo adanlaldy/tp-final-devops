@@ -68,18 +68,16 @@ jobs:
           sudo mv scw /usr/local/bin/scw
           sudo apt-get install -y jq
 
-      - name: Configure Scaleway CLI
-        env:
-          SCW_ACCESS_KEY: ${{ secrets.SCW_ACCESS_KEY }}
-          SCW_SECRET_KEY: ${{ secrets.SCW_SECRET_KEY }}
-          SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
-        run: |
-          scw config init \
-            --access-key "$SCW_ACCESS_KEY" \
-            --secret-key "$SCW_SECRET_KEY" \
-            --project-id "$SCW_PROJECT_ID" \
-            --region fr-par
-    
+      - name: Set up Scaleway CLI
+        uses: scaleway/action-scw@v0
+        with:
+          access-key: ${{ secrets.SCW_ACCESS_KEY }}
+          secret-key: ${{ secrets.SCW_ACCESS_KEY }}
+          default-project-id: ${{ secrets.SCW_PROJECT_ID }}
+          default-organization-id: ${{ secrets.SCALEWAY_ORG_ID }}
+          save-config: true
+          export-config: true
+
 
       - name: Load build tag
         id: load-tag
