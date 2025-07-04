@@ -75,10 +75,11 @@ jobs:
           SCW_PROJECT_ID: ${{ secrets.SCW_PROJECT_ID }}
         run: |
           scw config init \
-            -a "$SCW_ACCESS_KEY" \
-            -s "$SCW_SECRET_KEY" \
-            -o "$SCW_PROJECT_ID" \
-            -r fr-par
+            --access-key "$SCW_ACCESS_KEY" \
+            --secret-key "$SCW_SECRET_KEY" \
+            --project-id "$SCW_PROJECT_ID" \
+            --region fr-par
+    
 
       - name: Load build tag
         id: load-tag
